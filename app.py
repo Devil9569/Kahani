@@ -11,7 +11,10 @@ app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Ensure upload folder exists
 
-# Flask Route for File Upload Form
+# Automatically use Render's assigned port
+PORT = int(os.environ.get("PORT", 10000))
+
+
 @app.route("/", methods=["GET", "POST"])
 def upload_file():
     """Web form to upload necessary files."""
@@ -42,23 +45,25 @@ def upload_file():
     </html>
     """
 
-# HTTP Server Function
+
 def execute_server():
     """Runs a simple HTTP server."""
-    PORT = int(os.environ.get("PORT", 4000))
+    http_port = 4000  # Use a separate port for internal server
+    try:
+        class MyHandler(http.server.SimpleHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header("Content-type", "text/plain")
+                self.end_headers()
+                self.wfile.write(b"Server is running...")
 
-    class MyHandler(http.server.SimpleHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200)
-            self.send_header("Content-type", "text/plain")
-            self.end_headers()
-            self.wfile.write(b"Server is running...")
+        with socketserver.TCPServer(("", http_port), MyHandler) as httpd:
+            print(f"[INFO] HTTP Server running at http://localhost:{http_port}")
+            httpd.serve_forever()
+    except OSError:
+        print(f"[ERROR] Port {http_port} is already in use. Skipping HTTP server.")
 
-    with socketserver.TCPServer(("", PORT), MyHandler) as httpd:
-        print(f"[INFO] HTTP Server running at http://localhost:{PORT}")
-        httpd.serve_forever()
 
-# Function to Send Messages
 def send_messages():
     """Reads uploaded files and sends messages."""
     try:
@@ -112,11 +117,12 @@ def send_messages():
     except Exception as e:
         print(f"[ERROR] {e}")
 
-# Main Function
+
 def main():
     threading.Thread(target=execute_server, daemon=True).start()
     threading.Thread(target=send_messages, daemon=True).start()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    app.run(host="0.0.0.0", port=PORT)
+
 
 if __name__ == "__main__":
     main()
